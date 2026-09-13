@@ -1,0 +1,631 @@
+/*
+ * THE WHITE INPUT LINE.
+ *
+ * Owner decision: the one thing on this page a visitor types into is white, like
+ * the pearl voice control above it. The rule of the composition is now literal —
+ * the canvas is void, and everything you ACT with is light.
+ *
+ * It cannot be done by setting `--card` alone: the platform paints the pill with
+ * `bg-card` but its text with `text-foreground`, its placeholder and icons with
+ * the muted greys, and `--foreground` is white for the entire site. So the whole
+ * small palette is redeclared ON THE PILL, where it cascades to the input, the
+ * placeholder, the attach and mic buttons and the send key — and reaches nothing
+ * outside. The page keeps its own tokens untouched.
+ *
+ * Scoped through the dock's fixed container plus the pill's own `bg-card`, in the
+ * same spirit as the equaliser below: if the shell ever restyles that pill, our
+ * paint simply drops out and the stock dark dock returns — nothing breaks.
+ *
+ * The voice-active state is a DIFFERENT branch of the omnibox, outside `.bg-card`,
+ * so a running conversation keeps the dark bar with our equaliser in it. Only the
+ * resting input line is white.
+ */
+.fixed.bottom-0.z-10 .bg-card {
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 7%;
+  --foreground: 0 0% 7%;
+  --muted: 0 0% 91%;
+  --muted-foreground: 0 0% 32%;
+  --muted-foreground-subtle: 0 0% 44%;
+  --border: 0 0% 82%;
+  --input: 0 0% 82%;
+  /* The send key and the focus ring take the light theme's azure: the dark
+     variant is tuned for a black field and goes pale on white. */
+  --primary: 210 94% 48%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 210 94% 48%;
+
+  border-color: hsl(0 0% 100% / 0.9);
+  /* Lifted off the void: a wide, very low white bloom, no hard shadow. Pure
+     white on pure black otherwise looks cut out of the page. */
+  box-shadow:
+    0 24px 70px -28px hsl(0 0% 100% / 0.28),
+    0 2px 10px -4px hsl(0 0% 0% / 0.6);
+}
+
+/* Placeholder and the resting icons sit a little lighter than body ink so the
+   line reads as an invitation rather than as filled-in text. */
+.fixed.bottom-0.z-10 .bg-card textarea::placeholder {
+  color: hsl(0 0% 48%);
+}
+
+/*
+ * Learny.ai's brand colour is a gradient, and `--primary` is its flat member:
+ * the platform's own controls (send button, focus rings, selected states) take
+ * a single colour, so they get the gradient's saturated end. Values are
+ * `H S% L%` triples.
+ *
+ * ACTIVE: azure light — vivid sky blue lifting into an icy white-cyan, from the
+ * luminous sky reference. Three stops, because the reference's beauty is the
+ * pale core between two saturated edges.
+ *
+ * KEPT (the previous direction, one edit away if we go back) — aquamarine:
+ *   dark:  --learny-aqua-1: 165 85% 62%;  --learny-aqua-2: 187 92% 68%;
+ *          --primary: 170 82% 58%;        --primary-foreground: 180 35% 7%;
+ *   light: --learny-aqua-1: 168 78% 42%;  --learny-aqua-2: 188 82% 46%;
+ *          --primary: 172 76% 38%;        --primary-foreground: 0 0% 100%;
+ *   Its dock tint was neutral (--card: 0 0% 9%; --border: 0 0% 24%).
+ */
+
+:root.light {
+  --learny-aqua-1: 210 92% 46%;
+  --learny-aqua-2: 199 95% 62%;
+  --learny-aqua-3: 197 100% 78%;
+
+  --primary: 210 94% 48%;
+  --primary-foreground: 0 0% 100%;
+}
+
+:root.dark {
+  /* Saturated azure → open sky → the pale core of the reference. */
+  --learny-aqua-1: 212 100% 58%;
+  --learny-aqua-2: 202 100% 72%;
+  --learny-aqua-3: 197 100% 90%;
+
+  --primary: 210 100% 62%;
+  --primary-foreground: 214 60% 8%;
+
+  /* The input dock is the only panel on this black canvas, so it holds its own
+     edge instead of dissolving — and it holds it in the brand's blue rather
+     than neutral grey, so the one lit object below the fold belongs to us. */
+  --card: 213 34% 11%;
+  --border: 211 46% 30%;
+  --input: 211 46% 30%;
+  --muted: 213 26% 15%;
+  --ring: 210 100% 62%;
+}
+
+/* The dock is a first-class part of the composition, not a narrow chat input:
+   it spans the same column as the page content. Mobile keeps the shell's
+   full-width behaviour untouched. */
+@media (min-width: 769px) {
+  :root {
+    --container-form: var(--container-content);
+  }
+}
+
+/*
+ * OUR equaliser, in the dock's own slot.
+ *
+ * The dock is shell chrome — a screen may not position anything over it, and the
+ * platform draws its equaliser on a canvas whose colours live in platform code.
+ * So we take the slot instead: the canvas is hidden and the slot is painted here,
+ * in two layers, with no DOM of ours inside platform chrome.
+ *
+ * `::before` is the soft azure band — a wide blurred gradient that brightens with
+ * the conversation. `::after` is the instrument: twenty-one hairline bars in a
+ * centred cluster, each one its own background layer whose height is a live
+ * measurement. `LearnyHeader` publishes a trail of recent levels, so the middle
+ * bar is the sound happening right now and its neighbours are the moments just
+ * before — the wave travels outward from the centre. Silence rests the cluster
+ * into a fine row rather than animating on its own.
+ *
+ * Scoped to the dock's waveform slot (`h-28` + `pointer-events-none`), so the
+ * hero's own flag canvas is untouched. If the shell ever restyles that slot, our
+ * paint drops out and its stock equaliser comes back — nothing breaks.
+ */
+.h-28.pointer-events-none {
+  position: relative;
+}
+
+.h-28.pointer-events-none > canvas {
+  display: none;
+}
+
+.h-28.pointer-events-none::before,
+.h-28.pointer-events-none::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+}
+
+/*
+ * The transcript line the shell prints under the dock sits at the very bottom by
+ * default, which puts it straight through the instrument. Lift it to the top of
+ * the slot: the words get their own line above, the wave keeps the space below,
+ * and the mute/end buttons stay where the shell put them.
+ */
+.w-full.relative > .pointer-events-none.absolute.inset-x-0.bottom-2 {
+  top: 0;
+  bottom: auto;
+  padding-right: 1.5rem;
+}
+
+/* The band: a horizontal azure glow the instrument sits inside. */
+.h-28.pointer-events-none::before {
+  inset: 3.25rem 1.5rem 0.75rem;
+  border-radius: 999px;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--learny-aqua-1) / 0.2) 10%,
+    hsl(var(--learny-aqua-1) / 0.5) 30%,
+    hsl(var(--learny-aqua-2) / 0.62) 50%,
+    hsl(var(--learny-aqua-1) / 0.5) 70%,
+    hsl(var(--learny-aqua-1) / 0.2) 90%,
+    transparent 100%
+  );
+  filter: blur(13px);
+  opacity: calc(0.55 + var(--learny-voice-amp, 0) * 0.35 + var(--learny-voice-glow, 0) * 0.1);
+}
+
+/*
+ * The bars. Twenty-one layers of the same pale-tipped white gradient, each
+ * centred on its own offset and sized by its own level — mirrored around the
+ * middle, tapering outward. Percentage heights grow from the centre line
+ * because every layer is positioned `center`. The cluster sits in the lower part
+ * of the slot so the transcript line above it keeps clear air.
+ */
+.h-28.pointer-events-none::after {
+  inset: 2.5rem 1.5rem 0.25rem;
+  background-repeat: no-repeat;
+  background-image: linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    ),
+    linear-gradient(
+      180deg,
+      hsl(var(--learny-aqua-3)) 0%,
+      hsl(0 0% 100%) 50%,
+      hsl(var(--learny-aqua-3)) 100%
+    );
+  background-position:
+    calc(50% - 5rem) center,
+    calc(50% - 4.5rem) center,
+    calc(50% - 4rem) center,
+    calc(50% - 3.5rem) center,
+    calc(50% - 3rem) center,
+    calc(50% - 2.5rem) center,
+    calc(50% - 2rem) center,
+    calc(50% - 1.5rem) center,
+    calc(50% - 1rem) center,
+    calc(50% - 0.5rem) center,
+    50% center,
+    calc(50% + 0.5rem) center,
+    calc(50% + 1rem) center,
+    calc(50% + 1.5rem) center,
+    calc(50% + 2rem) center,
+    calc(50% + 2.5rem) center,
+    calc(50% + 3rem) center,
+    calc(50% + 3.5rem) center,
+    calc(50% + 4rem) center,
+    calc(50% + 4.5rem) center,
+    calc(50% + 5rem) center;
+  background-size:
+    0.1875rem calc(5% + var(--learny-voice-10, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-9, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-8, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-7, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-6, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-5, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-4, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-3, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-2, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-1, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-0, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-1, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-2, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-3, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-4, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-5, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-6, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-7, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-8, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-9, 0) * 80%),
+    0.1875rem calc(5% + var(--learny-voice-10, 0) * 80%);
+  filter: drop-shadow(0 0 5px hsl(var(--learny-aqua-2) / 0.85))
+    drop-shadow(0 0 14px hsl(var(--learny-aqua-1) / 0.55));
+  opacity: 0.95;
+}
+
+/* The brand gradient as a SURFACE, for the one control that has to be seen from
+   across the page: the door into the practice room. Same 100deg ramp as the
+   wordmark, so the loudest object on the page is unmistakably ours.
+   Ink is the deep azure the theme already pairs with brand blue — near-black on
+   the saturated end of the ramp, and far darker than the pale core, so the label
+   holds its contrast right across the sweep. The glow is the blue end only; the
+   pale core would wash into a grey halo on black. */
+.learny-aqua-fill {
+  background-image: linear-gradient(
+    100deg,
+    hsl(var(--learny-aqua-1)) 0%,
+    hsl(var(--learny-aqua-2)) 45%,
+    hsl(var(--learny-aqua-3)) 100%
+  );
+  color: hsl(var(--primary-foreground));
+  box-shadow:
+    0 14px 48px -14px hsl(var(--learny-aqua-1) / 0.7),
+    inset 0 1px 0 hsl(0 0% 100% / 0.35);
+}
+
+.learny-aqua-fill:hover {
+  filter: brightness(1.06);
+}
+
+/* The brand gradient as text. Kept to the wordmark and the eyebrow label. */
+.learny-aqua-text {
+  background-image: linear-gradient(
+    100deg,
+    hsl(var(--learny-aqua-1)) 0%,
+    hsl(var(--learny-aqua-2)) 42%,
+    hsl(var(--learny-aqua-3)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Same gradient, bright half only. Small type cannot carry the saturated end:
+   deep azure on black loses its edges at 11–15px, so labels ride the lit part
+   of the ramp and stay readable while keeping the brand's colour. */
+.learny-aqua-text-sm {
+  background-image: linear-gradient(
+    100deg,
+    hsl(var(--learny-aqua-2)) 0%,
+    hsl(var(--learny-aqua-3)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+/*
+ * Learny's decorative script: Great Vibes, for ONE accented word inside
+ * otherwise plain type. Never for running copy, a control, or anything read in
+ * a hurry — a script face at small sizes on black loses its hairlines.
+ *
+ * The compensation is the point of this class. Great Vibes has a small x-height
+ * and long entry/exit strokes, so at the same font-size it reads noticeably
+ * smaller than Geist and its swashes crowd the words on either side. It is
+ * therefore set slightly larger than its surroundings, with air around it and a
+ * line-height of its own so a tight display leading above it is not disturbed.
+ */
+.learny-script {
+  font-family: 'Great Vibes', 'Apple Chancery', 'Segoe Script', cursive;
+  font-weight: 400;
+  /* Sized up by eye against Geist, not by matching font-size: this face carries
+     its weight in a small x-height, so at parity it reads as a smaller word that
+     has fallen out of the line. Owner decision, after seeing 1.3: larger still,
+     so the accented word reads as the same SIZE as the plain words beside it
+     rather than as a smaller guest. The line-height stays well below 1 so the
+     extra size buys presence without pushing the display leading apart. */
+  font-size: 1.5em;
+  line-height: 0.78;
+  letter-spacing: 0.015em;
+  padding-inline: 0.06em;
+}
+
+/* A hairline in the brand gradient, lit at its left end and dissolved into the
+   void by its right. Carries the rhythm of the "how it works" grid, where a
+   plain border could not: `border-*` takes a colour, never a gradient. */.learny-aqua-rule {
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--learny-aqua-1) / 0.8) 0%,
+    hsl(var(--learny-aqua-2) / 0.35) 38%,
+    hsl(var(--foreground) / 0) 100%
+  );
+}
+
+/* A firefly's twinkle: the ONLY self-running motion in the trail, and a CSS
+   keyframe on purpose — the browser animates it without the main thread, which
+   the scroll-driven part of the trail needs left free. */
+.learny-firefly {
+  animation: learny-firefly-twinkle 2600ms ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes learny-firefly-twinkle {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.86);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learny-firefly {
+    animation: none;
+  }
+}
+
+/* The pointer's light on a step's hairline in the third section: brighter than
+   the standing rule and lit further along it, so hovering reads as light
+   travelling down the floor rather than the rule simply changing colour. */
+.learny-mechanic-wipe {
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--learny-aqua-1) / 0.95) 0%,
+    hsl(var(--learny-aqua-3) / 0.7) 45%,
+    hsl(var(--foreground) / 0) 100%
+  );
+}
+
+/* Keyboard focus on a title: an inset aqua marker at the column's edge. Colour
+   alone would not be enough of an indicator, and an outline around a full-width
+   row reads as a box drawn over the layout. */
+.learny-mechanic-tab:focus-visible {
+  box-shadow: inset 2px 0 0 hsl(var(--learny-aqua-2));
+}
+
+/*
+ * The mechanics selector in the third section: the chosen explanation rises a
+ * few pixels as it fades in, so a switch reads as a plate being placed rather
+ * than as text being swapped. Keyed on the selected index in React, which is
+ * what replays it.
+ */
+.learny-mechanic-body {
+  animation: learny-mechanic-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes learny-mechanic-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The ghost numeral behind the panel changes with the selection; it fades in
+   more slowly than the text so it never competes with it. */
+.learny-mechanic-ghost {
+  animation: learny-mechanic-ghost-in 620ms ease-out both;
+}
+
+@keyframes learny-mechanic-ghost-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/*
+ * The header's own way into the conversation, sitting beside the language
+ * switcher. Owner decision after review: the SAME gradient fill as the landing
+ * page's call to action, not a quieter hairline — this is the one control a
+ * visitor looks for from any screen, and two different looks for "go and talk"
+ * made it read as a lesser, secondary door. `.learny-aqua-fill` carries the
+ * gradient and the ink; only the header's own scale is set here.
+ */
+.learny-header-cta {
+  box-shadow:
+    0 8px 26px -12px hsl(var(--learny-aqua-1) / 0.65),
+    inset 0 1px 0 hsl(0 0% 100% / 0.3);
+  transition: filter 300ms ease;
+}
+
+.learny-header-cta:hover {
+  filter: brightness(1.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learny-header-cta {
+    transition: none;
+  }
+}
+
+/*
+ * Arrival: the two questions. A step change replays this entrance — the question
+ * and each option rise a few pixels as they fade in, staggered by an inline
+ * animation-delay, so answering reads as one card being replaced by the next
+ * rather than as text mutating in place.
+ */
+.learny-step-in {
+  animation: learny-step-in 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes learny-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * One answer on the arrival screen: a plate on the void, lit by the brand
+ * gradient's own hairline when pointed at. Not the pearl and not the gradient
+ * fill — those belong to starting a conversation and to the one loud call to
+ * action; an answer to a question is quieter than both.
+ */
+.learny-choice {
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--foreground) / 0.12);
+  background: hsl(var(--foreground) / 0.02);
+  transition:
+    border-color 300ms ease,
+    background-color 300ms ease,
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.learny-choice:hover:not(:disabled) {
+  border-color: hsl(var(--learny-aqua-2) / 0.55);
+  background: hsl(var(--learny-aqua-1) / 0.08);
+  transform: translateY(-2px);
+}
+
+.learny-choice:focus-visible {
+  outline: 2px solid hsl(var(--learny-aqua-2));
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learny-step-in {
+    animation: none;
+  }
+
+  .learny-choice,
+  .learny-choice:hover:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Anyone who asks for less motion gets the switch instantly — the selector is a
+   control, and a control must never wait on decoration. */
+@media (prefers-reduced-motion: reduce) {
+  .learny-mechanic-body,
+  .learny-mechanic-ghost {
+    animation: none;
+  }
+}
+
+/*
+ * The wordmark IS the logo: ".Learny" set in Abril Fatface (loaded in
+ * static/index.html). Used by the site header and the boot curtain, nowhere
+ * else — no other text on the site is set in a display serif.
+ */
+.learny-wordmark {
+  font-family: 'Abril Fatface', Georgia, 'Times New Roman', serif;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
