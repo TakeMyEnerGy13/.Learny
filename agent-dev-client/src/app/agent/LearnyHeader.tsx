@@ -16,6 +16,7 @@
  * type as their own message, which is the platform's own path for a tapped intent
  * and costs the same single agent turn a button on the page does.
  */
+import { Mic } from 'lucide-react';
 import { useEffect, type FC } from 'react';
 import { defineMessages, useIntl } from 'react-intl';
 import { cn } from '@/app/lib/utils';
@@ -132,7 +133,7 @@ function useVoiceAmplitudeBridge(): void {
     let lastStep = 0;
 
     const tick = (now: number) => {
-      const speaking = store.isAISpeaking;
+      const speaking = store.voiceState === 'speaking';
       const level = speaking ? realtimeVoiceLevels.output : realtimeVoiceLevels.input;
       peak = Math.max(peak * 0.995, level, 0.02);
       const activity = Math.min(1, level / peak);
@@ -178,8 +179,8 @@ export const LearnyHeader: FC<AgentHeaderProps> = ({ brandName, navItems, onNavi
     // azure, so a hairline here read as a blue line drawn across the void and
     // broke the one-black-field look. The header is separated by air alone; the
     // blur keeps the wordmark legible over anything that scrolls beneath it.
-    <header className="flex-none bg-background/80 px-5 pt-[env(safe-area-inset-top)] backdrop-blur-sm md:px-20">
-      <div className="mx-auto flex w-full max-w-container-content items-center gap-x-4 py-3 sm:py-4">
+    <header className="flex-none bg-background/80 px-4 pt-[env(safe-area-inset-top)] backdrop-blur-sm sm:px-5 md:px-20">
+      <div className="mx-auto flex w-full max-w-container-content items-center gap-x-2 py-3 sm:gap-x-4 sm:py-4">
         {/*
           The wordmark is also the way home — the convention every site on the web
           has trained visitors in, and now the only one: the practice room's own
@@ -197,7 +198,7 @@ export const LearnyHeader: FC<AgentHeaderProps> = ({ brandName, navItems, onNavi
               instruction: intl.formatMessage(messages.toHomeIntent),
             });
           }}
-          className="learny-wordmark learny-aqua-text flex-none cursor-pointer whitespace-nowrap bg-transparent text-2xl leading-none transition-opacity duration-300 hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[6px] focus-visible:outline-primary motion-reduce:transition-none sm:text-[1.75rem]"
+          className="learny-wordmark learny-aqua-text flex-none cursor-pointer whitespace-nowrap bg-transparent text-xl leading-none transition-opacity duration-300 hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[6px] focus-visible:outline-primary motion-reduce:transition-none sm:text-[1.75rem]"
           translate="no"
         >
           {brandName}
@@ -243,7 +244,7 @@ export const LearnyHeader: FC<AgentHeaderProps> = ({ brandName, navItems, onNavi
                 void wsManager.proposeLocale(locale).catch(() => undefined);
               }}
               className={cn(
-                'cursor-pointer touch-manipulation rounded-full bg-transparent px-2.5 py-1.5 text-xs font-semibold uppercase tracking-caps transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-primary',
+                'cursor-pointer touch-manipulation rounded-full bg-transparent px-1.5 py-1.5 text-[0.6875rem] font-semibold uppercase tracking-caps transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-primary sm:px-2.5 sm:text-xs',
                 active === locale
                   ? 'text-foreground'
                   : 'text-muted-foreground-subtle hover:text-foreground',
@@ -270,14 +271,16 @@ export const LearnyHeader: FC<AgentHeaderProps> = ({ brandName, navItems, onNavi
         */}
         <button
           type="button"
+          aria-label={intl.formatMessage(messages.toPractice)}
           onClick={() => {
             void store.sendMessage({
               instruction: intl.formatMessage(messages.toPracticeIntent),
             });
           }}
-          className="learny-aqua-fill learny-header-cta ml-1 flex-none cursor-pointer touch-manipulation whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-semibold uppercase tracking-caps focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-primary"
+          className="learny-aqua-fill learny-header-cta ml-0.5 flex size-9 flex-none items-center justify-center rounded-full p-0 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-primary sm:ml-1 sm:size-auto sm:block sm:px-3.5 sm:py-1.5 sm:text-xs sm:font-semibold sm:uppercase sm:tracking-caps"
         >
-          {intl.formatMessage(messages.toPractice)}
+          <Mic aria-hidden="true" className="size-4 sm:hidden" strokeWidth={1.8} />
+          <span className="hidden sm:inline">{intl.formatMessage(messages.toPractice)}</span>
         </button>
       </div>
     </header>

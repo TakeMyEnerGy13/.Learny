@@ -240,11 +240,11 @@ export const Pricing: FC = () => {
       {/* Three across only from `lg`: at the tablet width three of these cards
           leave about 180px of measure each, which crushes the benefit lines into
           three-word ribbons. Below that they stack, which reads calmer anyway. */}
-      <ul className="mt-12 grid gap-4 sm:gap-5 lg:mt-16 lg:grid-cols-3 lg:gap-6">
+      <ul className="mt-12 grid justify-items-center gap-4 sm:gap-5 lg:mt-16 lg:grid-cols-3 lg:gap-6">
         {plans.map((plan) => (
           <li
             key={plan.id}
-            className={`group relative flex flex-col overflow-hidden rounded-2xl border p-7 backdrop-blur-md transition-[transform,border-color,background-color] duration-500 ease-out hover:-translate-y-px motion-reduce:transition-none motion-reduce:hover:translate-y-0 lg:p-8 ${
+            className={`group relative flex w-full max-w-[34rem] flex-col items-center overflow-hidden rounded-2xl border p-7 text-center backdrop-blur-md transition-[transform,border-color,background-color] duration-500 ease-out hover:-translate-y-px motion-reduce:transition-none motion-reduce:hover:translate-y-0 lg:max-w-none lg:items-stretch lg:p-8 lg:text-left ${
               plan.featured
                 ? 'border-foreground/[0.14] bg-foreground/[0.045] shadow-[inset_0_1px_0_hsl(var(--foreground)/0.12)] hover:border-[hsl(var(--learny-aqua-1)/0.4)]'
                 : 'border-foreground/[0.08] bg-foreground/[0.02] hover:border-foreground/20'
@@ -256,20 +256,20 @@ export const Pricing: FC = () => {
               <span aria-hidden="true" className="learny-aqua-rule absolute inset-x-0 top-0 h-px" />
             ) : null}
 
-            <p className="h-4 text-[0.6875rem] uppercase tracking-[0.18em] text-muted-foreground-subtle">
+            <p className="h-4 w-full text-[0.6875rem] uppercase tracking-[0.18em] text-muted-foreground-subtle">
               {plan.featured ? intl.formatMessage(messages.recommended) : ''}
             </p>
 
-            <h3 className="mt-5 text-[2rem] font-normal leading-none text-foreground">
+            <h3 className="mt-5 w-full text-[2rem] font-normal leading-none text-foreground">
               <span className="learny-script">{plan.name}</span>
             </h3>
             {/* Two lines of room whether the note needs them or not, so the three
                 prices sit on one line across the row. */}
-            <p className="mt-4 min-h-[2.5rem] text-[0.8125rem] font-extralight leading-relaxed text-foreground/50">
+            <p className="mt-4 min-h-[2.5rem] w-full text-[0.8125rem] font-extralight leading-relaxed text-foreground/50">
               {plan.note}
             </p>
 
-            <p className="mt-7 flex items-baseline gap-2">
+            <p className="mt-7 flex w-full items-baseline justify-center gap-2 lg:justify-start">
               <span className="text-[2.25rem] font-extralight leading-none tracking-tight text-foreground">
                 {plan.price}
               </span>
@@ -282,9 +282,9 @@ export const Pricing: FC = () => {
 
             <span aria-hidden="true" className="mt-7 h-px w-full bg-foreground/[0.08]" />
 
-            <ul className="mt-6 flex flex-col gap-3">
+            <ul className="mt-6 flex w-full flex-col items-center gap-3 lg:items-stretch">
               {plan.points.map((point) => (
-                <li key={point} className="flex items-start gap-3">
+                <li key={point} className="flex w-fit max-w-full items-start gap-3 text-left lg:justify-start">
                   <Check
                     aria-hidden="true"
                     className="mt-[0.2rem] size-3.5 flex-none text-[hsl(var(--learny-aqua-2))]/50"
@@ -299,7 +299,7 @@ export const Pricing: FC = () => {
 
             {/* The action sits at the bottom of every card regardless of how many
                 benefit lines a plan has, so the three buttons line up. */}
-            <div className="mt-8 flex flex-1 items-end">
+            <div className="mt-8 flex w-full flex-1 items-end">
               {plan.available ? (
                 <button
                   type="button"
@@ -318,7 +318,7 @@ export const Pricing: FC = () => {
         ))}
       </ul>
 
-      <p className="mt-8 max-w-[64ch] text-xs font-extralight leading-relaxed text-muted-foreground-subtle">
+      <p className="mx-auto mt-8 max-w-[64ch] text-center text-xs font-extralight leading-relaxed text-muted-foreground-subtle lg:mx-0 lg:text-left">
         {intl.formatMessage(messages.note)}
       </p>
     </section>
