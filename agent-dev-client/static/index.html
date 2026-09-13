@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0c0d0d" />
+
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-title" content="Agentplace" />
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Great+Vibes&family=Geist:wght@100..900&display=swap"
+      rel="stylesheet"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>.Learny</title>
+    <link rel="stylesheet" href="/main.css?v=10" />
+
+    <!-- Development tools, DO NOT REMOVE -->
+    <script src="/sprintf.min.js"></script>
+    <script src="/livereload.js"></script>
+    <script src="/overlay.js"></script>
+    <script src="/server-status-overlay.js"></script>
+    <style>
+      /* Mobile Safari paints the top safe area / overscroll from the document
+         canvas, and iOS 26 Liquid Glass tints the status bar by sampling
+         fixed elements at the viewport edge (#edge-tint below). Both follow
+         the theme token, so a light/dark class flip retints the browser
+         chrome live. Inline on purpose: sampled at first paint, before
+         main.css applies. */
+      /* Safari paints the top safe area / overscroll from the html canvas;
+         the bottom toolbar glass reflects the LIVE page beneath it — so the
+         body stays transparent on mobile Safari (an opaque body or a bottom
+         sampling strip forces a static tint that never matches the dock
+         gradient). Same split as the landing site. */
+      html,
+      body {
+        background-color: hsl(var(--background, 180 4% 5%));
+      }
+      @supports (-webkit-touch-callout: none) {
+        @media (max-width: 991px) {
+          body {
+            background-color: transparent;
+          }
+        }
+      }
+      @supports not (-webkit-touch-callout: none) {
+        #edge-tint {
+          display: none !important;
+        }
+      }
+      @media (min-width: 992px) {
+        #edge-tint {
+          display: none !important;
+        }
+      }
+      #root > .loading-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+      }
+      #root > .loading-container > .loading-spinner {
+        width: 64px;
+        height: 64px;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+    <style>
+      /* The owner's own preloader, taken verbatim from his reference page. Two
+         deliberate deviations: every selector is scoped under #preloader so the
+         generic .brand / .progress class names cannot collide with the app, and
+         the exit transition below was added so the curtain can be dismissed
+         (his original loops forever). His numbers are untouched. */
+      #preloader {
+        --dot: #ffffff;
+        --bg: #000000;
+        position: fixed;
+        inset: 0px;
+        background: var(--bg);
+        display: grid;
+        place-items: center;
+        z-index: 9999;
+        overflow: hidden;
+        transition: opacity 620ms ease;
+      }
+      #preloader.lp-out {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #preloader #stage {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+      #preloader #scene {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      #preloader .brand {
+        position: absolute;
+        left: 50%;
+        bottom: clamp(28px, 6vh, 64px);
+        transform: translateX(-50%);
+        display: flex;
+        align-items: baseline;
+        gap: 0.02em;
+        letter-spacing: 0.02em;
+        font-family: 'Abril Fatface', Georgia, 'Times New Roman', serif;
+        font-weight: 400;
+        font-size: clamp(20px, 2.4vw, 30px);
+        user-select: none;
+        color: var(--dot);
+        opacity: 0;
+        animation: 1.4s ease 0.3s 1 normal forwards running fadeIn;
+      }
+      #preloader .brand .dot {
+        margin-right: 0.05em;
+        transform: translateY(-0.05em);
+      }
+      #preloader .brand .name {
+        font-weight: 400;
+        letter-spacing: 0.01em;
+      }
+      #preloader .brand .name em {
+        font-style: normal;
+        font-weight: 400;
+      }
+      #preloader .progress {
+        position: absolute;
+        left: 50%;
+        bottom: clamp(14px, 3.4vh, 32px);
+        transform: translateX(-50%);
+        width: clamp(120px, 14vw, 180px);
+        height: 1px;
+        background: rgba(255, 255, 255, 0.12);
+        overflow: hidden;
+      }
+      #preloader .progress::after {
+        content: '';
+        position: absolute;
+        inset: 0px;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          rgba(255, 255, 255, 0.85) 50%,
+          transparent 100%
+        );
+        transform: translateX(-100%);
+        animation: 2.4s ease-in-out 0s infinite normal none running sweep;
+      }
+      @keyframes sweep {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+      }
+      @keyframes fadeIn {
+        0% { opacity: 0; transform: translate(-50%, 6px); }
+        100% { opacity: 1; transform: translate(-50%, 0px); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #preloader .progress::after { animation: none; }
+        #preloader .brand { animation: none; opacity: 1; }
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="edge-tint"
+      aria-hidden="true"
+      style="position:fixed;top:0;left:0;width:100%;height:4px;background-color:hsl(var(--background,180 4% 5%));pointer-events:none;z-index:60"
+    ></div>
+    <div id="preloader" aria-label="Learny preloader">
+      <div id="stage">
+        <canvas id="scene" aria-hidden="true"></canvas>
+        <div class="brand" aria-hidden="false">
+          <span class="dot">.</span>
+          <span class="name">Learn<em>y</em></span>
+        </div>
+        <div class="progress" aria-hidden="true"></div>
+      </div>
+    </div>
+    <script src="/learny-preloader.js"></script>
+    <script>
+      // Dismiss glue for the curtain. The first agent screen calls dismiss()
+      // when it mounts; MIN_MS keeps the curtain up long enough for the hands
+      // to actually meet, and the hard timeout guarantees nobody is ever
+      // trapped behind it if a screen never arrives.
+      (() => {
+        const el = document.getElementById('preloader');
+        const MIN_MS = 1900;
+        const HARD_MS = 7000;
+        const openedAt = performance.now();
+        let closing = false;
+        const close = () => {
+          if (!el || !el.isConnected) return;
+          el.classList.add('lp-out');
+          window.setTimeout(() => {
+            window.__learnyPreloaderStopped = true;
+            el.remove();
+          }, 700);
+        };
+        const dismiss = () => {
+          if (closing) return;
+          closing = true;
+          window.setTimeout(close, Math.max(0, MIN_MS - (performance.now() - openedAt)));
+        };
+        window.__learnyPreloader = { dismiss };
+        window.setTimeout(dismiss, HARD_MS);
+        // Any deliberate touch also lifts it: a visitor who wants in must
+        // never be held behind a decoration.
+        window.addEventListener('pointerdown', dismiss, { once: true });
+        window.addEventListener('keydown', dismiss, { once: true });
+      })();
+    </script>
+    <div id="root">
+      <div class="loading-container">
+        <svg class="loading-spinner" viewBox="0 0 64 64" fill="none">
+          <title>Loading...</title>
+          <circle
+            cx="32"
+            cy="32"
+            r="30"
+            stroke="url(#circularLoaderGradient)"
+            stroke-width="1"
+            stroke-linecap="round"
+            stroke-dasharray="50 150"
+          />
+          <defs>
+            <linearGradient id="circularLoaderGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#6b7280" stop-opacity="0.2" />
+              <stop offset="50%" stop-color="#6b7280" stop-opacity="1" />
+              <stop offset="100%" stop-color="#6b7280" stop-opacity="0.2" />
+            </linearGradient>
+          </defs>
+        </svg>
+        <p id="boot-brand" style="max-width: 44ch; text-align: center; font-size: 13px; color: #8a8377; font-family: sans-serif; line-height: 1.5;"></p>
+        <script>
+          document.getElementById('boot-brand').textContent = document.title;
+        </script>
+      </div>
+    </div>
+    <script src="/main.js?v=10"></script>
+    <script>
+      // On-device chrome diagnostics: open with ?chrome-debug=1 and screenshot.
+      if (location.search.includes('chrome-debug')) {
+        const panel = document.createElement('pre');
+        panel.style.cssText =
+          'position:fixed;top:15%;left:8px;right:8px;z-index:9999;background:#000c;color:#0f0;' +
+          'font:11px monospace;padding:8px;border-radius:8px;pointer-events:none;white-space:pre-wrap';
+        document.body.appendChild(panel);
+        const probe = document.createElement('div');
+        probe.style.cssText = 'position:fixed;bottom:0;height:0;padding-bottom:env(safe-area-inset-bottom)';
+        document.body.appendChild(probe);
+        const report = () => {
+          const cs = getComputedStyle(document.documentElement);
+          const strips = ['edge-tint', 'edge-tint-bottom'].map((id) => {
+            const el = document.getElementById(id);
+            if (!el) return id + ': MISSING';
+            const s = getComputedStyle(el);
+            const r = el.getBoundingClientRect();
+            return id + ': display=' + s.display + ' bg=' + s.backgroundColor +
+              ' rect=' + Math.round(r.top) + '/' + Math.round(r.bottom) + ' h=' + Math.round(r.height);
+          });
+          panel.textContent = [
+            'innerH=' + window.innerHeight + ' outerH=' + window.outerHeight +
+              ' vv=' + Math.round(window.visualViewport ? window.visualViewport.height : -1),
+            'docElH=' + document.documentElement.clientHeight + ' bodyH=' + document.body.scrollHeight +
+              ' scrollY=' + Math.round(window.scrollY),
+            'sai-bottom=' + getComputedStyle(probe).paddingBottom,
+            'html bg=' + cs.backgroundColor + ' scheme=' + cs.colorScheme,
+            'body bg=' + getComputedStyle(document.body).backgroundColor,
+            'meta theme-color=' + (document.querySelector('meta[name="theme-color"]')?.content ?? 'none'),
+            ...strips,
+          ].join('\n');
+        };
+        report();
+        setInterval(report, 1000);
+      }
+    </script>
+  </body>
+</html>
