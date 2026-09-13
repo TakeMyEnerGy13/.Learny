@@ -24,6 +24,7 @@ import { z } from 'zod';
 
 import { createRouter, publicProcedure } from '../init.ts';
 import { loggedProcedure } from '../middleware/action-logging.ts';
+import { resolveArrivalId } from './learner-identity.ts';
 import {
   applyArrival,
   applyMemory,
@@ -55,11 +56,7 @@ const memoryPatch = z.object({
 
 /** What the browser is told. The profile is the visitor's own, so it goes back whole. */
 type ArrivalResult = {
-  /**
-   * The id this visit was recorded under. Usually the one the browser sent back —
-   * but when the browser could not keep it, this is the id recovered from the
-   * session, and the client adopts it. Null when nothing could be resolved.
-   */
+  /** The id this browser sent, or its new one-time candidate. */
   id: string | null;
   profile: LearnerProfile;
   /** True when we have met this browser before — what the arrival screen branches on. */
@@ -74,71 +71,16 @@ type ArrivalResult = {
   briefing: string;
 };
 
-/**
- * The session's copy of who is here.
- *
- * `localStorage` is the learner's identity papers, and some browsers refuse to
- * issue them — private windows, embedded webviews, storage-partitioned iframes.
- * Without a second copy such a visitor is a stranger on every page load INSIDE ONE
- * VISIT, which is the one loss worth preventing: the session is already theirs and
- * already scoped to them, so it can hold the id for as long as the visit lasts.
- *
- * It is a fallback, never the source of truth: a browser that DID keep its id wins,
- * because that copy is the one that outlives the session. Nothing here reaches
- * across visitors — `private/` is this session and no other.
- */
-const SESSION_IDENTITY_PATH = 'private/learner-id.json';
-
-async function idFromSession(ctx: { storage: SessionStorage }): Promise<string | null> {
-  try {
-    if (!(await ctx.storage.exists(SESSION_IDENTITY_PATH))) {
-      return null;
-    }
-    const raw = JSON.parse((await ctx.storage.readFile(SESSION_IDENTITY_PATH)).toString('utf8'));
-    const id = (raw as { id?: unknown }).id;
-    return typeof id === 'string' && LEARNER_ID_PATTERN.test(id) ? id : null;
-  } catch {
-    return null;
-  }
-}
-
-async function keepIdInSession(ctx: { storage: SessionStorage }, id: string): Promise<void> {
-  try {
-    await ctx.storage.writeFile(
-      SESSION_IDENTITY_PATH,
-      Buffer.from(JSON.stringify({ id }), 'utf8'),
-    );
-  } catch (error) {
-    // The fallback failing is not the visitor's problem; the primary copy stands.
-    console.warn('[Learner] could not keep the id in the session:', error);
-  }
-}
-
-/** Only the two operations the identity fallback needs. */
-type SessionStorage = {
-  exists(path: string): Promise<boolean>;
-  readFile(path: string): Promise<Buffer>;
-  writeFile(path: string, content: Buffer): Promise<unknown>;
-};
-
 export function createLearnerRouter() {
   return createRouter({
     /**
-     * Read without recording a visit. Used by screens that display remembered
-     * facts (progress), never by arrival — a refresh is not a new visit.
-     *
-     * The id is OPTIONAL, and that is the point: a page load can land straight on
-     * the progress screen (a replayed session, a reload) without the arrival screen
-     * ever mounting, and a browser that refuses storage then holds no id at all.
-     * Owner-visible symptom when this leaned on the browser alone: a learner with
-     * 39 visits was shown an empty memory. So when the browser cannot name itself,
-     * the session's own copy answers — the same fallback arrival uses, and never a
-     * reach across visitors.
+     * Read without recording a visit. The browser must explicitly name its own
+     * profile; no server-held fallback is permitted on a shared runtime.
      */
     get: publicProcedure
       .input(z.object({ id: learnerId.optional() }))
       .query(async ({ input, ctx }): Promise<{ id: string | null; profile: LearnerProfile }> => {
-        const id = input.id ?? (await idFromSession(ctx));
+        const id = input.id ?? null;
         if (!id) {
           return { id: null, profile: emptyProfile('') };
         }
@@ -146,7 +88,7 @@ export function createLearnerRouter() {
         console.log(
           '[Learner] get:',
           id,
-          input.id ? '(browser)' : '(session)',
+          '(browser)',
           `visits=${profile.visits}`,
           `language=${profile.language}`,
         );
@@ -154,19 +96,12 @@ export function createLearnerRouter() {
       }),
 
     /**
-     * A visit begins. Idempotency is the caller's job: the arrival screen calls
-     * this ONCE per page load, because this is what increments the visit count.
+     * A visit begins. The browser is the only identity authority: an established
+     * `id` resumes its own history; a fresh `candidate` begins a new profile.
      *
-     * Two ways to say who is here, and the ORDER matters:
-     *
-     * - `id` — an ESTABLISHED learner, read out of the browser's own storage. It
-     *   wins over everything: that copy outlives this session, so it is the one
-     *   with a history behind it.
-     * - `candidate` — an id the browser just minted because it had none. Used only
-     *   if the session cannot name someone better. A browser arriving blank into a
-     *   session that already knows its learner is the same visitor continuing (a
-     *   refresh in a window that will not keep storage), so the session's answer is
-     *   worth more than a brand-new stranger.
+     * The arrival screen calls this once per page load, because this is what
+     * increments a visit. A browser that refuses local storage stays anonymous on
+     * its next load rather than inheriting another visitor's memory.
      */
     arrive: loggedProcedure
       .input(
@@ -177,13 +112,8 @@ export function createLearnerRouter() {
         }),
       )
       .mutation(async ({ input, ctx }) => {
-        const fromSession = await idFromSession(ctx);
-        const id = input.id ?? fromSession ?? input.candidate ?? null;
-        console.log(
-          '[Learner] arrive:',
-          id ?? '(unidentified)',
-          input.id ? '(browser)' : id && id === fromSession ? '(session)' : '(new)',
-        );
+        const id = resolveArrivalId(input);
+        console.log('[Learner] arrive:', id ?? '(unidentified)', input.id ? '(browser)' : '(new)');
         if (!id) {
           const result: ArrivalResult = {
             id: null,
@@ -193,27 +123,16 @@ export function createLearnerRouter() {
           };
           return { ...result, logSummary: 'A visitor we cannot remember (no storage).' };
         }
-        // A VISIT is a session, not a page load. The session already naming this
-        // learner means we have counted them — a refresh, a livereload, a second
-        // mount of the screen must not turn one visit into three, because the number
-        // is shown back to the learner and a wrong one is worse than none.
-        const counted = fromSession === id;
         try {
           const profile = await updateProfile(ctx.storage, id, (current) => {
-            const arrived = counted ? current : applyArrival(current);
+            const arrived = applyArrival(current);
             return input.native ? applyMemory(arrived, { native: input.native }) : arrived;
           });
-          // Kept for the rest of the visit, so a browser that loses its copy on the
-          // next page load is still the same learner.
-          if (!counted) {
-            await keepIdInSession(ctx, id);
-          }
           const result: ArrivalResult = {
             id,
             profile,
-            // `visits` counts this one, so a first-ever visit reads 1. On a reload
-            // within the same visit nothing was incremented, hence the same test
-            // still answers correctly.
+            // A first-ever candidate reads one visit; only a browser that supplied
+            // its own established id can be recognised as returning.
             returning: profile.visits > 1,
             briefing: summariseProfile(profile),
           };
