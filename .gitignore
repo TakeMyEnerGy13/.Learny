@@ -1,0 +1,18 @@
+# Credentials and Agentplace runtime state
+agent-dev-server/.env.runtime
+.agent/mcp.json
+.env
+.env.*
+!.env.example
+
+# Generated output and local dependencies
+node_modules/
+build/
+dist/
+coverage/
+*.log
+
+# Agentplace platform/vendor code is supplied by the platform template.
+agent-dev-client/vendor/
+agent-dev-client/static/
+agent-dev-server/vendor/
