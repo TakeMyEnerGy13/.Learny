@@ -57,7 +57,10 @@ export interface AgentConfig {
 }
 
 export const AGENT_CONFIG: AgentConfig = {
-  modelId: 'openai.gpt-5.6-terra',
+  // Fallback from the temporarily unavailable Bedrock Mantle route. Claude runs
+  // through the independent Anthropic gateway while preserving the same tools,
+  // screens, locale handling and voice configuration.
+  modelId: 'claude-sonnet-5',
   localization: { sourceLocale: 'en' },
   // Live spoken practice is the product, so voice is the primary surface, not a
   // nicety. `mini` keeps a demo minute affordable at the same conversation
